@@ -14,82 +14,44 @@ import { api } from "../../Config/apiConfig";
 export const createPost = (postData) => async (dispatch) => {
     try {
         console.log("Creating post with data:", postData);
-
-        // Ensure we're working with FormData
-        let formDataToSend = new FormData();
-
-        // If postData is already FormData, copy its contents
-        if (postData instanceof FormData) {
-            for (let pair of postData.entries()) {
-                formDataToSend.append(pair[0], pair[1]);
-            }
-        } else {
-            // If postData is a regular object, convert it to FormData
-            Object.keys(postData).forEach(key => {
-                if (Array.isArray(postData[key])) {
-                    postData[key].forEach(item => {
-                        formDataToSend.append(key, item);
-                    });
-                } else {
-                    formDataToSend.append(key, postData[key]);
-                }
-            });
+        const jwt = localStorage.getItem("jwt");
+        
+        if (!jwt) {
+            throw new Error("Authentication token not found");
         }
 
-        const config = {
+        // Debug logging for FormData contents
+        console.log("FormData contents before sending:");
+        for (let [key, value] of postData.entries()) {
+            console.log(`${key}:`, value);
+        }
+
+        const response = await api.post("/api/twits/create", postData, {
             headers: {
-                'Content-Type': 'multipart/form-data',
-                'Accept': '*/*'
+                "Authorization": `Bearer ${jwt}`,
+                // Let axios set the Content-Type for FormData
             }
-        };
+        });
 
-        // Log the final FormData contents for debugging
-        console.log("Final FormData contents:");
-        for (let pair of formDataToSend.entries()) {
-            console.log(pair[0], ':', pair[1]);
-        }
-
-        const { data } = await api.post("/api/twits/create", formDataToSend, config);
-        console.log("Created post response:", data);
+        console.log("Post creation response:", response.data);
         
-        if (!data) {
-            throw new Error("No data received from server");
+        if (response.status === 201 || response.status === 200) {
+            dispatch({ type: CREATE_POST, payload: response.data });
+            // Refresh posts after successful creation
+            dispatch(getAllPosts());
+            return { success: true, data: response.data };
+        } else {
+            throw new Error("Unexpected response status: " + response.status);
         }
-
-        dispatch({ type: CREATE_POST, payload: data });
-        
-        // Refresh the posts feed
-        await dispatch(getAllPosts());
-        return { success: true, data };
     } catch (error) {
-        console.error("Error creating post:", error.response?.data || error.message);
-        
-        // Log detailed error information
-        if (error.response?.status === 415) {
-            console.error("Content Type Error Details:", {
-                headers: error.config?.headers,
-                data: error.config?.data,
-                isFormData: error.config?.data instanceof FormData
-            });
-            return { 
-                success: false, 
-                error: "Server configuration issue. Please try again later or contact support." 
-            };
-        }
-
-        // Handle specific error cases
-        if (!error.response) {
-            return { success: false, error: "Network error. Please check your connection." };
-        }
-        
-        if (error.response.status === 401) {
-            return { success: false, error: "Please sign in to create a post." };
-        }
-
-        return { 
-            success: false, 
-            error: error.response?.data?.message || error.message || "Failed to create post. Please try again." 
-        };
+        console.error("Error creating post:", error);
+        console.error("Error details:", {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status
+        });
+        dispatch({ type: CREATE_POST, payload: error.message });
+        return { success: false, error: error.message };
     }
 };
 

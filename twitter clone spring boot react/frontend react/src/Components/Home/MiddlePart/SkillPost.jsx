@@ -70,9 +70,22 @@ const SkillPost = ({ post }) => {
     const dispatch = useDispatch();
     const [commentOpen, setCommentOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
+    const [deleteOpen, setDeleteOpen] = useState(false);
     const [comment, setComment] = useState('');
     const [editContent, setEditContent] = useState(post?.content || '');
-    const isOwner = post?.user_id === auth?.id;
+    
+    // Detailed debug logs
+    console.log('Post details:', {
+        postId: post?.id,
+        postUserId: post?.user?.id,
+        postUserName: post?.user?.fullName,
+        currentUserId: auth?.id,
+        currentUserName: auth?.fullName
+    });
+    
+    // Make sure we're comparing the correct IDs
+    const isOwner = auth?.id && post?.user?.id && auth.id === post.user.id;
+    console.log('Is owner?', isOwner);
 
     if (!post) return null;
 
@@ -98,9 +111,12 @@ const SkillPost = ({ post }) => {
     };
 
     const handleDelete = () => {
-        if (window.confirm('Are you sure you want to delete this skill post?')) {
-            dispatch(deletePost(post.id));
-        }
+        setDeleteOpen(true);
+    };
+
+    const handleConfirmDelete = () => {
+        dispatch(deletePost(post.id));
+        setDeleteOpen(false);
     };
 
     const handleUpdatePost = () => {
@@ -132,16 +148,24 @@ const SkillPost = ({ post }) => {
                         </div>
                     }
                     action={
-                        isOwner && (
-                            <div>
-                                <IconButton onClick={handleEdit}>
-                                    <EditIcon className="text-gray-500" />
+                        auth?.id && post?.user?.id && auth.id === post.user.id ? (
+                            <div className="flex">
+                                <IconButton 
+                                    onClick={handleEdit} 
+                                    size="small"
+                                    aria-label="edit post"
+                                >
+                                    <EditIcon className={theme === "dark" ? "text-white" : "text-gray-500"} />
                                 </IconButton>
-                                <IconButton onClick={handleDelete}>
-                                    <DeleteIcon className="text-gray-500" />
+                                <IconButton 
+                                    onClick={handleDelete} 
+                                    size="small"
+                                    aria-label="delete post"
+                                >
+                                    <DeleteIcon className={theme === "dark" ? "text-white" : "text-gray-500"} />
                                 </IconButton>
                             </div>
-                        )
+                        ) : null
                     }
                 />
                 <CardContent>
@@ -152,19 +176,15 @@ const SkillPost = ({ post }) => {
                         {post.content}
                     </Typography>
 
-                    {/* Display images in a grid */}
-                    {post.images && post.images.length > 0 && (
-                        <div className={`mt-4 grid grid-cols-${post.images.length} gap-4`}>
-                            {post.images.map((image, index) => (
-                                <div key={index} className="relative">
-                                    <img
-                                        src={image}
-                                        alt={`Skill content ${index + 1}`}
-                                        className="w-full rounded-lg object-cover"
-                                        style={{ aspectRatio: '16/9' }}
-                                    />
-                                </div>
-                            ))}
+                    {/* Display image */}
+                    {post.image && (
+                        <div className="mt-4">
+                            <img
+                                src={post.image}
+                                alt="Skill content"
+                                className="w-full rounded-lg object-cover"
+                                style={{ maxHeight: '512px', objectFit: 'contain' }}
+                            />
                         </div>
                     )}
 
@@ -232,24 +252,60 @@ const SkillPost = ({ post }) => {
             </Dialog>
 
             {/* Edit Dialog */}
-            <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Edit Skill Post</DialogTitle>
+            <Dialog 
+                open={editOpen} 
+                onClose={() => setEditOpen(false)}
+                fullWidth
+                maxWidth="sm"
+            >
+                <DialogTitle>Edit Post</DialogTitle>
                 <DialogContent>
                     <TextField
                         autoFocus
                         margin="dense"
-                        label="Update your skill description"
+                        label="Post Content"
                         type="text"
                         fullWidth
                         multiline
                         rows={4}
                         value={editContent}
                         onChange={(e) => setEditContent(e.target.value)}
+                        variant="outlined"
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setEditOpen(false)}>Cancel</Button>
-                    <Button onClick={handleUpdatePost}>Save</Button>
+                    <Button onClick={() => setEditOpen(false)} color="primary">
+                        Cancel
+                    </Button>
+                    <Button 
+                        onClick={handleUpdatePost} 
+                        color="primary"
+                        disabled={!editContent.trim()}
+                    >
+                        Save Changes
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog
+                open={deleteOpen}
+                onClose={() => setDeleteOpen(false)}
+                aria-labelledby="delete-dialog-title"
+            >
+                <DialogTitle id="delete-dialog-title">Delete Post?</DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        Are you sure you want to delete this post? This action cannot be undone.
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setDeleteOpen(false)} color="primary">
+                        Cancel
+                    </Button>
+                    <Button onClick={handleConfirmDelete} color="error" autoFocus>
+                        Delete
+                    </Button>
                 </DialogActions>
             </Dialog>
         </>

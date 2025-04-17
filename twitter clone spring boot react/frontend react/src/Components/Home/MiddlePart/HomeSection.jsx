@@ -12,6 +12,7 @@ import { uploadToCloudinary } from "../../../Utils/UploadToCloudinary";
 import BackdropComponent from "../../Backdrop/Backdrop";
 import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import SkillPost from './SkillPost';
+import { toast } from "react-hot-toast";
 
 const MAX_IMAGES = 3;
 const MAX_VIDEO_DURATION = 30; // in seconds
@@ -57,7 +58,7 @@ const HomeSection = () => {
   const handleSubmit = async (values, actions) => {
     try {
       if (!values.content.trim()) {
-        alert("Please enter a skill description");
+        toast.error("Please enter a skill description");
         return;
       }
 
@@ -70,48 +71,56 @@ const HomeSection = () => {
       // Handle images
       if (selectedImages.length > 0) {
         try {
-          const imagePromises = selectedImages.map(image => uploadToCloudinary(image, "image"));
-          const imageUrls = await Promise.all(imagePromises);
+          console.log("Starting image upload to Cloudinary...");
+          console.log("Selected images:", selectedImages);
           
-          // Add images as a JSON string array
-          formData.append('images', JSON.stringify(imageUrls));
+          // Upload first image to Cloudinary
+          const image = selectedImages[0];
+          console.log("Uploading image:", image.name);
+          const imageUrl = await uploadToCloudinary(image, "image");
+          console.log("Image uploaded successfully to Cloudinary:", imageUrl);
           
-          // Also add individual image URLs
-          imageUrls.forEach((url, index) => {
-            formData.append(`image${index}`, url);
-          });
+          // Add image URL to FormData
+          formData.append("image", imageUrl);
+          
+          console.log("FormData after adding image:");
+          for (let [key, value] of formData.entries()) {
+            console.log(`${key}:`, value);
+          }
         } catch (error) {
-          console.error("Error uploading images:", error);
-          throw new Error("Failed to upload images. Please try again.");
+          console.error("Error during image upload process:", error);
+          toast.error("Failed to upload image. Please try again.");
+          setUploadingMedia(false);
+          return;
         }
       }
 
-      // Handle video
-      if (selectedVideo) {
-        try {
-          const videoUrl = await uploadToCloudinary(selectedVideo, "video");
-          formData.append("video", videoUrl);
-          formData.append("videoDuration", videoDuration.toString());
-        } catch (error) {
-          console.error("Error uploading video:", error);
-          throw new Error("Failed to upload video. Please try again.");
-        }
+      // Get the JWT token
+      const jwt = localStorage.getItem("jwt");
+      if (!jwt) {
+        toast.error("Please sign in to create a post");
+        setUploadingMedia(false);
+        return;
       }
 
+      console.log("Sending post data to server...");
       const result = await dispatch(createPost(formData));
       
       if (result.success) {
-        console.log("Skill post created successfully:", result.data);
+        console.log("Post created successfully:", result.data);
+        toast.success("Post created successfully!");
         actions.resetForm();
         setSelectedImages([]);
         setSelectedVideo(null);
         setVideoDuration(0);
+        // Refresh posts after successful creation
+        dispatch(getAllPosts());
       } else {
-        throw new Error(result.error || "Failed to create skill post. Please try again.");
+        throw new Error(result.error || "Failed to create post");
       }
     } catch (error) {
       console.error("Error in handleSubmit:", error);
-      alert(error.message || "An error occurred while sharing your skill. Please try again.");
+      toast.error(error.message || "An error occurred while creating the post");
     } finally {
       setUploadingMedia(false);
     }
@@ -204,6 +213,8 @@ const HomeSection = () => {
                           size="small"
                           className="absolute top-1 right-1 bg-black bg-opacity-50 hover:bg-opacity-70"
                           onClick={() => removeImage(index)}
+                          aria-label={`Remove image ${index + 1}`}
+                          tabIndex={0}
                         >
                           <CloseIcon className="text-white" fontSize="small" />
                         </IconButton>
@@ -228,6 +239,8 @@ const HomeSection = () => {
                         size="small"
                         className="bg-black bg-opacity-50 hover:bg-opacity-70"
                         onClick={removeVideo}
+                        aria-label="Remove video"
+                        tabIndex={0}
                       >
                         <CloseIcon className="text-white" fontSize="small" />
                       </IconButton>

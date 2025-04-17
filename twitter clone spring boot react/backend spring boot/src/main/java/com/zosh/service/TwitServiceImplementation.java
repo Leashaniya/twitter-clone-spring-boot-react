@@ -25,20 +25,38 @@ public class TwitServiceImplementation implements TwitService {
 	}
 
 	@Override
-	public Twit createTwit(Twit req,User user) {
+	public Twit createTwit(Twit req, User user) {
+		System.out.println("Creating twit with image URL: " + req.getImage());
 		
-		
-		Twit twit=new Twit();
+		Twit twit = new Twit();
 		twit.setContent(req.getContent());
 		twit.setCreatedAt(LocalDateTime.now());
-		twit.setImage(req.getImage());
+		
+		// Handle image URL
+		if (req.getImage() != null && !req.getImage().trim().isEmpty()) {
+			System.out.println("Setting image URL: " + req.getImage());
+			twit.setImage(req.getImage().trim());
+		} else {
+			System.out.println("No image URL provided");
+			twit.setImage(null);
+		}
+		
+		// Handle video URL
+		if (req.getVideo() != null && !req.getVideo().trim().isEmpty()) {
+			System.out.println("Setting video URL: " + req.getVideo());
+			twit.setVideo(req.getVideo().trim());
+		} else {
+			twit.setVideo(null);
+		}
+		
 		twit.setUser(user);
 		twit.setReply(false);
 		twit.setTwit(true);
-		twit.setVideo(req.getVideo());
 		
+		Twit savedTwit = twitRepository.save(twit);
+		System.out.println("Saved twit with ID: " + savedTwit.getId() + ", Image URL: " + savedTwit.getImage());
 		
-		return twitRepository.save(twit);
+		return savedTwit;
 	}
 
 	@Override
@@ -126,6 +144,14 @@ public class TwitServiceImplementation implements TwitService {
 		return twitRepository.findByLikesUser_Id(user.getId());
 	}
 	
+	@Override
+	public Twit updateTwit(Twit twit) throws TwitException {
+		Twit existingTwit = findById(twit.getId());
+		existingTwit.setContent(twit.getContent());
+		if (twit.getImage() != null) {
+			existingTwit.setImage(twit.getImage());
+		}
+		return twitRepository.save(existingTwit);
+	}
 	
-
 }
