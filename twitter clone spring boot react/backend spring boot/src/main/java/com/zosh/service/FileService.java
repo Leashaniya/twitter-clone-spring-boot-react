@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -23,14 +24,50 @@ public class FileService {
     private static final int MAX_VIDEO_DURATION = 30; // in seconds
     private static final long MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB max size for videos
 
+    public List<String> uploadMultipleFiles(MultipartFile[] files) {
+        int imageCount = 0;
+        boolean hasVideo = false;
+        List<String> urls = new ArrayList<>();
+
+        for (MultipartFile file : files) {
+            validateFile(file);
+            String contentType = file.getContentType();
+
+            if (isImage(contentType)) {
+                if (imageCount >= MAX_IMAGES) {
+                    throw new IllegalArgumentException("Maximum of " + MAX_IMAGES + " images allowed");
+                }
+                imageCount++;
+            } else if (isVideo(contentType)) {
+                if (hasVideo) {
+                    throw new IllegalArgumentException("Only one video allowed per post");
+                }
+                hasVideo = true;
+            }
+
+            String url = uploadFile(file);
+            urls.add(url);
+        }
+
+        return urls;
+    }
+
     public String uploadFile(MultipartFile file) {
         validateFile(file);
         try {
-            Map<String, Object> options = ObjectUtils.emptyMap();
+            Map<String, Object> options;
+            
             if (isVideo(file.getContentType())) {
                 options = ObjectUtils.asMap(
                     "resource_type", "video",
-                    "max_duration", MAX_VIDEO_DURATION
+                    "max_duration", MAX_VIDEO_DURATION,
+                    "transformation", Arrays.asList(
+                        ObjectUtils.asMap("max_duration", MAX_VIDEO_DURATION)
+                    )
+                );
+            } else {
+                options = ObjectUtils.asMap(
+                    "resource_type", "auto"
                 );
             }
             

@@ -79,17 +79,38 @@ export const getAllTweetsFailure = (error) => ({
 });
 
 export const getAllTweets = () => {
-
   return async (dispatch) => {
-
-
     dispatch(getAllTweetsRequest());
     try {
-      const response = await api.get("/api/twits/");
-      console.log("all tweets ",response.data)
+      const token = localStorage.getItem("jwt");
+      if (!token) {
+        throw new Error("Authentication required");
+      }
+      
+      console.log("Fetching tweets with token:", token);
+      
+      const response = await api.get("/api/twits/feed", {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      console.log("API Response:", response);
+      
+      if (!response.data) {
+        throw new Error("No tweets found");
+      }
+      
+      console.log("Tweets data:", response.data);
       dispatch(getAllTweetsSuccess(response.data));
     } catch (error) {
-      dispatch(getAllTweetsFailure(error.message));
+      console.error("Detailed error fetching tweets:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: error.config
+      });
+      dispatch(getAllTweetsFailure(error.response?.data?.message || error.message));
     }
   };
 };
@@ -98,11 +119,30 @@ export const getUsersTweets = (userId) => {
   return async (dispatch) => {
     dispatch({type:GET_USERS_TWEET_REQUEST});
     try {
-      const response = await api.get(`/api/twits/user/${userId}`);
-      console.log("users tweets ",response.data)
-      dispatch({type:GET_USERS_TWEET_SUCCESS,payload:response.data});
+      const token = localStorage.getItem("jwt");
+      if (!token) {
+        throw new Error("Authentication required");
+      }
+      
+      if (!userId) {
+        throw new Error("User ID is required");
+      }
+      
+      const response = await api.get(`/api/twits/user/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (!response.data) {
+        throw new Error("No tweets found for this user");
+      }
+      
+      console.log("users tweets ", response.data);
+      dispatch({type:GET_USERS_TWEET_SUCCESS, payload: response.data});
     } catch (error) {
-      dispatch({type:GET_USERS_TWEET_FAILURE,payload:error.message});
+      console.error("Error fetching user tweets:", error);
+      dispatch({type:GET_USERS_TWEET_FAILURE, payload: error.message});
     }
   };
 };

@@ -13,6 +13,8 @@ import BackdropComponent from "../../Backdrop/Backdrop";
 import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import SkillPost from './SkillPost';
 import { toast } from "react-hot-toast";
+import { getAllTweets } from "../../../Store/Tweet/Action";
+import TwitCard from "./TwitCard/TwitCard";
 
 const MAX_IMAGES = 3;
 const MAX_VIDEO_DURATION = 30; // in seconds
@@ -30,11 +32,25 @@ const HomeSection = () => {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);
   const dispatch = useDispatch();
-  const auth = useSelector((state) => state.auth);
-  const posts = useSelector((state) => state.post.posts);
+  const { twit, auth } = useSelector((state) => state);
 
   useEffect(() => {
-    dispatch(getAllPosts());
+    const fetchTweets = async () => {
+      try {
+        console.log("Fetching tweets...");
+        const token = localStorage.getItem("jwt");
+        if (!token) {
+          console.error("No JWT token found");
+          return;
+        }
+        await dispatch(getAllTweets());
+      } catch (error) {
+        console.error("Error fetching tweets:", error);
+        toast.error("Failed to load tweets. Please try again.");
+      }
+    };
+
+    fetchTweets();
   }, [dispatch]);
 
   const checkVideoDuration = (file) => {
@@ -179,137 +195,31 @@ const HomeSection = () => {
 
   return (
     <div className="space-y-5">
-      <section>
-        <h1 className="py-5 text-xl font-bold opacity-90">Share Your Skills</h1>
-        <div className="border border-gray-100 p-5 rounded-lg">
-          <div className="flex space-x-5">
-            <Avatar alt={auth.user?.fullName} src={auth.user?.image} />
-            <div className="w-full">
-              <form onSubmit={formik.handleSubmit}>
-                <div>
-                  <textarea
-                    name="content"
-                    placeholder="Share your skills and knowledge... (Describe what you're teaching or showcasing)"
-                    className="border-none outline-none text-xl bg-transparent w-full resize-none"
-                    rows={3}
-                    {...formik.getFieldProps("content")}
-                  />
-                  {formik.errors.content && formik.touched.content && (
-                    <span className="text-red-500">{formik.errors.content}</span>
-                  )}
-                </div>
-
-                {/* Preview selected images */}
-                {selectedImages.length > 0 && (
-                  <div className="mt-4 grid grid-cols-3 gap-4">
-                    {selectedImages.map((image, index) => (
-                      <div key={index} className="relative">
-                        <img
-                          src={URL.createObjectURL(image)}
-                          alt={`Selected ${index + 1}`}
-                          className="w-full h-32 object-cover rounded-lg"
-                        />
-                        <IconButton
-                          size="small"
-                          className="absolute top-1 right-1 bg-black bg-opacity-50 hover:bg-opacity-70"
-                          onClick={() => removeImage(index)}
-                          aria-label={`Remove image ${index + 1}`}
-                          tabIndex={0}
-                        >
-                          <CloseIcon className="text-white" fontSize="small" />
-                        </IconButton>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Preview selected video */}
-                {selectedVideo && (
-                  <div className="mt-4 relative">
-                    <video
-                      src={URL.createObjectURL(selectedVideo)}
-                      className="w-full max-h-96 rounded-lg"
-                      controls
-                    />
-                    <div className="absolute top-1 right-1 flex items-center space-x-2">
-                      <span className="bg-black bg-opacity-50 text-white px-2 py-1 rounded">
-                        {videoDuration.toFixed(1)}s
-                      </span>
-                      <IconButton
-                        size="small"
-                        className="bg-black bg-opacity-50 hover:bg-opacity-70"
-                        onClick={removeVideo}
-                        aria-label="Remove video"
-                        tabIndex={0}
-                      >
-                        <CloseIcon className="text-white" fontSize="small" />
-                      </IconButton>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center mt-5">
-                  <div className="flex space-x-5 items-center">
-                    <label className="flex items-center space-x-2 rounded-md cursor-pointer" title={`Upload up to ${MAX_IMAGES} images`}>
-                      <ImageIcon className="text-[#1d9bf0]" />
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImageSelect}
-                        disabled={selectedVideo !== null}
-                      />
-                      <span className="text-sm text-gray-500">{`(${selectedImages.length}/${MAX_IMAGES})`}</span>
-                    </label>
-                    <label className="flex items-center space-x-2 rounded-md cursor-pointer" title={`Upload video (max ${MAX_VIDEO_DURATION}s)`}>
-                      <VideoLibraryIcon className="text-[#1d9bf0]" />
-                      <input
-                        type="file"
-                        accept="video/*"
-                        className="hidden"
-                        onChange={handleVideoSelect}
-                        disabled={selectedImages.length > 0}
-                      />
-                    </label>
-                  </div>
-
-                  <div>
-                    <Button
-                      sx={{
-                        width: "100%",
-                        borderRadius: "20px",
-                        paddingY: "8px",
-                        paddingX: "20px",
-                        bgcolor: "#1d9bf0",
-                      }}
-                      variant="contained"
-                      type="submit"
-                      disabled={uploadingMedia || !formik.values.content.trim()}
-                    >
-                      Share Skill
-                    </Button>
-                  </div>
-                </div>
-              </form>
-            </div>
-          </div>
+      {twit.loading ? (
+        <div className="flex justify-center items-center p-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
         </div>
-      </section>
-
-      <section className="space-y-4">
-        {!posts || posts.length === 0 ? (
-          <div className="text-center py-5 text-gray-500">
-            No skills shared yet. Be the first to share your knowledge!
-          </div>
-        ) : (
-          posts.map((item) => (
-            <SkillPost key={item.id} post={item} />
-          ))
-        )}
-      </section>
-
-      <BackdropComponent open={uploadingMedia} />
+      ) : twit.error ? (
+        <div className="text-center p-4 text-red-500">
+          <p>Error loading tweets: {twit.error}</p>
+          <button 
+            onClick={() => dispatch(getAllTweets())}
+            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Try Again
+          </button>
+        </div>
+      ) : twit.twits?.length === 0 ? (
+        <div className="text-center p-4 text-gray-500">
+          No tweets found. Be the first to tweet!
+        </div>
+      ) : (
+        <>
+          {twit.twits?.map((item) => (
+            <TwitCard key={item.id} twit={item} />
+          ))}
+        </>
+      )}
     </div>
   );
 };

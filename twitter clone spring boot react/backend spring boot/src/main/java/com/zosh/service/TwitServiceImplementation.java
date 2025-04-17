@@ -129,8 +129,10 @@ public class TwitServiceImplementation implements TwitService {
 
 	@Override
 	public List<Twit> findAllTwit() {
-//		 Sort sortByCreatedAtDesc = org.springframework.data.domain.Sort.Order("DESC")
-		return twitRepository.findAllByIsTwitTrueOrderByCreatedAtDesc();
+		System.out.println("Fetching all tweets...");
+		List<Twit> tweets = twitRepository.findAllByIsTwitTrueOrderByCreatedAtDesc();
+		System.out.println("Found " + tweets.size() + " tweets");
+		return tweets;
 	}
 
 	@Override

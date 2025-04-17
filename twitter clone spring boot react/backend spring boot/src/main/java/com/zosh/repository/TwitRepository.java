@@ -10,8 +10,12 @@ import com.zosh.model.User;
 
 public interface TwitRepository extends JpaRepository<Twit, Long> {
 
+	@Query("SELECT t FROM Twit t WHERE t.isTwit = true ORDER BY t.createdAt DESC")
 	List<Twit> findAllByIsTwitTrueOrderByCreatedAtDesc();
+	
+	@Query("SELECT t FROM Twit t WHERE t.user.id = :userId OR :user MEMBER OF t.retwitUser AND t.isTwit = true ORDER BY t.createdAt DESC")
 	List<Twit> findByRetwitUserContainsOrUser_IdAndIsTwitTrueOrderByCreatedAtDesc(User user, Long userId);
+	
 	List<Twit> findByLikesContainingOrderByCreatedAtDesc(User user);
 	
 	@Query("SELECT t FROM Twit t JOIN t.likes l WHERE l.user.id = :userId")

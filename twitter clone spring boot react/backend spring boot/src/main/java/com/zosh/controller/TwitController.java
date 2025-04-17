@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -103,8 +104,57 @@ public class TwitController {
     }
     
     @PutMapping("/{id}")
-    public ResponseEntity<TwitDto> updateTwit(@PathVariable Long id, @RequestBody TwitDto twitDto) {
-        // Implementation of updateTwit method
-        return null; // Placeholder return, actual implementation needed
+    public ResponseEntity<TwitDto> updateTwit(
+            @PathVariable Long id,
+            @RequestParam("content") String content,
+            @RequestParam(value = "image", required = false) String imageUrl,
+            @RequestParam(value = "video", required = false) String videoUrl,
+            @RequestHeader("Authorization") String jwt) throws UserException, TwitException {
+        
+        User user = userService.findUserProfileByJwt(jwt);
+        Twit existingTwit = twitService.findById(id);
+        
+        // Check if the user is the owner of the twit
+        if (!existingTwit.getUser().getId().equals(user.getId())) {
+            throw new TwitException("You are not authorized to edit this twit");
+        }
+        
+        existingTwit.setContent(content);
+        
+        // Handle image URL
+        if (imageUrl != null && !imageUrl.trim().isEmpty()) {
+            existingTwit.setImage(imageUrl.trim());
+        }
+        
+        // Handle video URL
+        if (videoUrl != null && !videoUrl.trim().isEmpty()) {
+            existingTwit.setVideo(videoUrl.trim());
+        }
+        
+        Twit updatedTwit = twitService.updateTwit(existingTwit);
+        TwitDto twitDto = TwitDtoMapper.toTwitDto(updatedTwit, user);
+        
+        return new ResponseEntity<>(twitDto, HttpStatus.OK);
+    }
+    
+    @GetMapping("/feed")
+    public ResponseEntity<List<TwitDto>> getAllTwits(@RequestHeader("Authorization") String jwt) throws UserException {
+        try {
+            String token = jwt.substring(7); // Remove "Bearer " prefix
+            User user = userService.findUserProfileByJwt(token);
+            List<Twit> twits = twitService.findAllTwit();
+            List<TwitDto> twitDtos = new ArrayList<>();
+            
+            for (Twit twit : twits) {
+                TwitDto twitDto = TwitDtoMapper.toTwitDto(twit, user);
+                twitDtos.add(twitDto);
+            }
+            
+            return new ResponseEntity<>(twitDtos, HttpStatus.OK);
+        } catch (Exception e) {
+            System.out.println("Error in getAllTwits: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 }
