@@ -12,7 +12,9 @@ import {
     Dialog,
     DialogTitle,
     DialogContent,
-    DialogActions
+    DialogActions,
+    ImageList,
+    ImageListItem
 } from '@mui/material'
 import FavoriteIcon from '@mui/icons-material/Favorite'
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder'
@@ -24,77 +26,30 @@ import { likePost, deletePost, updatePost } from '../../../Store/Post/Action'
 
 // Helper function to format relative time
 const getRelativeTime = (dateString) => {
-    try {
-        if (!dateString) {
-            return 'Just now'; // Default fallback for missing dates
-        }
-
-        const now = new Date();
-        const postDate = new Date(dateString);
-
-        // Check if the date is valid
-        if (isNaN(postDate.getTime())) {
-            console.warn('Invalid date format:', dateString);
-            return 'Recently'; // Fallback for invalid dates
-        }
-
-        const diffInSeconds = Math.floor((now - postDate) / 1000);
-        const diffInMinutes = Math.floor(diffInSeconds / 60);
-        const diffInHours = Math.floor(diffInMinutes / 60);
-        const diffInDays = Math.floor(diffInHours / 24);
-
-        if (diffInSeconds < 60) {
-            return 'just now';
-        } else if (diffInMinutes < 60) {
-            return `${diffInMinutes}m ago`;
-        } else if (diffInHours < 24) {
-            return `${diffInHours}h ago`;
-        } else if (diffInDays < 7) {
-            return `${diffInDays}d ago`;
-        } else {
-            return postDate.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-            });
-        }
-    } catch (error) {
-        console.error('Error formatting date:', error);
-        return 'Recently'; // Fallback for any errors
-    }
+    const now = new Date();
+    const postDate = new Date(dateString);
+    const diffInSeconds = Math.floor((now - postDate) / 1000);
+    
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    return `${Math.floor(diffInSeconds / 86400)}d ago`;
 };
 
 const SkillPost = ({ post }) => {
-    const theme = useSelector((state) => state.theme.currentTheme);
-    const auth = useSelector((state) => state.auth.user);
     const dispatch = useDispatch();
-    const [commentOpen, setCommentOpen] = useState(false);
+    const { auth, theme } = useSelector(state => state);
     const [editOpen, setEditOpen] = useState(false);
+    const [editContent, setEditContent] = useState(post.content);
+    const [showComments, setShowComments] = useState(false);
     const [comment, setComment] = useState('');
-    const [editContent, setEditContent] = useState(post?.content || '');
-    const isOwner = post?.user_id === auth?.id;
-
-    if (!post) return null;
-
-    // Format the post date for display
-    const formattedDate = post.created_at 
-        ? new Date(post.created_at).toLocaleString('en-US', {
-            dateStyle: 'medium',
-            timeStyle: 'short'
-          })
-        : 'Recent post';
+    
+    const isOwner = post.user?.id === auth.user?.id;
+    const formattedDate = new Date(post.created_at).toLocaleString();
+    const isLiked = post.likes?.some(like => like.id === auth.user?.id);
 
     const handleLike = () => {
         dispatch(likePost(post.id));
-    };
-
-    const handleComment = () => {
-        setCommentOpen(true);
-    };
-
-    const handleEdit = () => {
-        setEditOpen(true);
-        setEditContent(post.content);
     };
 
     const handleDelete = () => {
@@ -103,14 +58,33 @@ const SkillPost = ({ post }) => {
         }
     };
 
+    const handleEdit = () => {
+        setEditContent(post.content);
+        setEditOpen(true);
+    };
+
     const handleUpdatePost = () => {
-        dispatch(updatePost(post.id, { content: editContent }));
+        const formData = new FormData();
+        formData.append('content', editContent);
+        
+        // Keep existing media
+        if (post.images) {
+            formData.append('images', JSON.stringify(post.images));
+        }
+        if (post.video) {
+            formData.append('video', post.video);
+            if (post.videoDuration) {
+                formData.append('videoDuration', post.videoDuration);
+            }
+        }
+
+        dispatch(updatePost(post.id, formData));
         setEditOpen(false);
     };
 
     return (
         <>
-            <Card className={`w-full mb-4 ${theme === "dark" ? "bg-[#0D0D0D] text-white" : ""}`}>
+            <Card className={`w-full mb-4 ${theme.currentTheme === "dark" ? "bg-[#0D0D0D] text-white" : ""}`}>
                 <CardHeader
                     avatar={
                         <Avatar 
@@ -125,7 +99,7 @@ const SkillPost = ({ post }) => {
                         </div>
                     }
                     subheader={
-                        <div className={theme === "dark" ? "text-gray-400" : "text-gray-500"}>
+                        <div className={theme.currentTheme === "dark" ? "text-gray-400" : "text-gray-500"}>
                             <span>@{post.user?.fullName?.split(" ").join("_").toLowerCase() || 'anonymous'}</span>
                             <span className="mx-1">·</span>
                             <span title={formattedDate}>{getRelativeTime(post.created_at)}</span>
@@ -135,10 +109,10 @@ const SkillPost = ({ post }) => {
                         isOwner && (
                             <div>
                                 <IconButton onClick={handleEdit}>
-                                    <EditIcon className="text-gray-500" />
+                                    <EditIcon className={theme.currentTheme === "dark" ? "text-gray-400" : "text-gray-500"} />
                                 </IconButton>
                                 <IconButton onClick={handleDelete}>
-                                    <DeleteIcon className="text-gray-500" />
+                                    <DeleteIcon className={theme.currentTheme === "dark" ? "text-gray-400" : "text-gray-500"} />
                                 </IconButton>
                             </div>
                         )
@@ -147,25 +121,30 @@ const SkillPost = ({ post }) => {
                 <CardContent>
                     <Typography 
                         variant="body1" 
-                        className={`whitespace-pre-wrap ${theme === "dark" ? "text-white" : "text-gray-800"}`}
+                        className={`whitespace-pre-wrap ${theme.currentTheme === "dark" ? "text-white" : "text-gray-800"}`}
                     >
                         {post.content}
                     </Typography>
 
                     {/* Display images in a grid */}
                     {post.images && post.images.length > 0 && (
-                        <div className={`mt-4 grid grid-cols-${post.images.length} gap-4`}>
+                        <ImageList 
+                            cols={post.images.length > 1 ? 2 : 1} 
+                            gap={8}
+                            className="mt-4"
+                        >
                             {post.images.map((image, index) => (
-                                <div key={index} className="relative">
+                                <ImageListItem key={index}>
                                     <img
                                         src={image}
                                         alt={`Skill content ${index + 1}`}
-                                        className="w-full rounded-lg object-cover"
+                                        loading="lazy"
+                                        className="rounded-lg object-cover w-full"
                                         style={{ aspectRatio: '16/9' }}
                                     />
-                                </div>
+                                </ImageListItem>
                             ))}
-                        </div>
+                        </ImageList>
                     )}
 
                     {/* Display video */}
@@ -187,58 +166,42 @@ const SkillPost = ({ post }) => {
                 </CardContent>
 
                 <CardActions disableSpacing>
-                    <IconButton onClick={handleLike} aria-label="like">
-                        {post.is_liked ? (
+                    <IconButton onClick={handleLike}>
+                        {isLiked ? (
                             <FavoriteIcon className="text-red-500" />
                         ) : (
-                            <FavoriteBorderIcon className="text-gray-500 hover:text-red-500" />
+                            <FavoriteBorderIcon className={theme.currentTheme === "dark" ? "text-gray-400" : "text-gray-500"} />
                         )}
                     </IconButton>
-                    <Typography variant="body2" color="text.secondary">
+                    <span className={theme.currentTheme === "dark" ? "text-gray-400" : "text-gray-500"}>
                         {post.likes?.length || 0}
-                    </Typography>
-                    <IconButton onClick={handleComment} aria-label="comment">
-                        <CommentIcon className="text-gray-500 hover:text-blue-500" />
+                    </span>
+
+                    <IconButton 
+                        className="ml-2"
+                        onClick={() => setShowComments(!showComments)}
+                    >
+                        <CommentIcon className={theme.currentTheme === "dark" ? "text-gray-400" : "text-gray-500"} />
                     </IconButton>
-                    <Typography variant="body2" color="text.secondary">
+                    <span className={theme.currentTheme === "dark" ? "text-gray-400" : "text-gray-500"}>
                         {post.comments?.length || 0}
-                    </Typography>
+                    </span>
                 </CardActions>
             </Card>
 
-            {/* Comment Dialog */}
-            <Dialog open={commentOpen} onClose={() => setCommentOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Add Comment</DialogTitle>
-                <DialogContent>
-                    <TextField
-                        autoFocus
-                        margin="dense"
-                        label="Your comment"
-                        type="text"
-                        fullWidth
-                        multiline
-                        rows={4}
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setCommentOpen(false)}>Cancel</Button>
-                    <Button onClick={() => {
-                        // TODO: Implement add comment
-                        setCommentOpen(false);
-                    }}>Post</Button>
-                </DialogActions>
-            </Dialog>
-
             {/* Edit Dialog */}
-            <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
+            <Dialog 
+                open={editOpen} 
+                onClose={() => setEditOpen(false)}
+                fullWidth
+                maxWidth="sm"
+            >
                 <DialogTitle>Edit Skill Post</DialogTitle>
                 <DialogContent>
                     <TextField
                         autoFocus
                         margin="dense"
-                        label="Update your skill description"
+                        label="Description"
                         type="text"
                         fullWidth
                         multiline
@@ -249,7 +212,13 @@ const SkillPost = ({ post }) => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setEditOpen(false)}>Cancel</Button>
-                    <Button onClick={handleUpdatePost}>Save</Button>
+                    <Button 
+                        onClick={handleUpdatePost}
+                        variant="contained"
+                        disabled={!editContent.trim() || editContent === post.content}
+                    >
+                        Update
+                    </Button>
                 </DialogActions>
             </Dialog>
         </>

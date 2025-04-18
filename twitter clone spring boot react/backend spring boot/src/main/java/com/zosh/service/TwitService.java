@@ -30,6 +30,8 @@ public interface TwitService {
 	
 	public List<Twit> findByLikesContainsUser(User user);
 	
+	public Twit updateTwit(Twit twit) throws TwitException;
+	
 	
 
 }

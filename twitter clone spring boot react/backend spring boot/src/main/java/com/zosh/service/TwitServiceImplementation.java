@@ -126,6 +126,15 @@ public class TwitServiceImplementation implements TwitService {
 		return twitRepository.findByLikesUser_Id(user.getId());
 	}
 	
+	@Override
+	public Twit updateTwit(Twit twit) throws TwitException {
+		Twit existingTwit = findById(twit.getId());
+		existingTwit.setContent(twit.getContent());
+		existingTwit.setImage(twit.getImage());
+		existingTwit.setVideo(twit.getVideo());
+		return twitRepository.save(existingTwit);
+	}
+	
 	
 
 }

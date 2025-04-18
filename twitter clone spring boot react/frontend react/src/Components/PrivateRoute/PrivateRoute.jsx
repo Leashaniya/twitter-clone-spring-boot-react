@@ -1,15 +1,16 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { Navigate } from 'react-router-dom';
 
 const PrivateRoute = ({ children }) => {
-    const { auth } = useSelector((state) => state);
-    
-    if (!auth.jwt) {
-        // Redirect them to the login page if not authenticated
+    const { auth } = useSelector((store) => store);
+    const jwt = localStorage.getItem("jwt");
+
+    // Check both JWT in localStorage and auth state
+    if (!jwt || !auth.jwt || !auth.user) {
         return <Navigate to="/signin" />;
     }
-    
+
     return children;
 };
 
