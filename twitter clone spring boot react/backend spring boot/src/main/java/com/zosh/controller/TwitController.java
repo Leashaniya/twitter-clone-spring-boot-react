@@ -3,6 +3,7 @@ package com.zosh.controller;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.ArrayList;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,7 @@ import com.zosh.request.TwitReplyRequest;
 import com.zosh.response.ApiResponse;
 import com.zosh.service.TwitService;
 import com.zosh.service.UserService;
+import com.zosh.service.CloudinaryService;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -29,17 +31,19 @@ public class TwitController {
 	
 	private TwitService twitService;
 	private UserService userService;
+	private CloudinaryService cloudinaryService;
 	
-	public TwitController(TwitService twitService, UserService userService) {
+	public TwitController(TwitService twitService, UserService userService, CloudinaryService cloudinaryService) {
 		this.twitService = twitService;
 		this.userService = userService;
+		this.cloudinaryService = cloudinaryService;
 	}
 	
 	@PostMapping("/create")
 	public ResponseEntity<TwitDto> createTwit(
 			@RequestParam(value = "content", required = true) String content,
-			@RequestParam(value = "images", required = false) List<MultipartFile> images,
-			@RequestParam(value = "video", required = false) MultipartFile video,
+			@RequestParam(value = "images", required = false) List<String> images,
+			@RequestParam(value = "video", required = false) String video,
 			@RequestHeader("Authorization") String jwt) throws UserException, TwitException, IOException {
 		
 		User user = userService.findUserProfileByJwt(jwt);
@@ -48,6 +52,16 @@ public class TwitController {
 		twit.setContent(content);
 		twit.setCreatedAt(LocalDateTime.now());
 		twit.setUser(user);
+		
+		// Set images if provided
+		if (images != null && !images.isEmpty()) {
+			twit.setImages(images);
+		}
+		
+		// Set video URL if provided
+		if (video != null && !video.isEmpty()) {
+			twit.setVideo(video);
+		}
 		
 		Twit createdTwit = twitService.createTwit(twit, user);
 		TwitDto twitDto = TwitDtoMapper.toTwitDto(createdTwit, user);
@@ -86,7 +100,22 @@ public class TwitController {
 	public ResponseEntity<ApiResponse> deleteTwitById(@PathVariable Long twitId,
 			@RequestHeader("Authorization") String jwt) throws UserException, TwitException {
 		User user = userService.findUserProfileByJwt(jwt);
+		
+		// Get the twit before deleting to access its image URLs
+		Twit twit = twitService.findById(twitId);
+		
+		// Delete the twit from database
 		twitService.deleteTwitById(twitId, user.getId());
+		
+		// Delete associated images from Cloudinary
+		if (twit.getImages() != null && !twit.getImages().isEmpty()) {
+			for (String image : twit.getImages()) {
+				cloudinaryService.deleteImage(image);
+			}
+		}
+		if (twit.getVideo() != null) {
+			cloudinaryService.deleteImage(twit.getVideo());
+		}
 		
 		ApiResponse res = new ApiResponse();
 		res.setMessage("twit deleted successfully");
@@ -139,6 +168,30 @@ public class TwitController {
 		}
 		
 		existingTwit.setContent(content);
+		
+		// Handle image upload and deletion of old images
+		if (images != null && !images.isEmpty()) {
+			List<String> imageUrls = new ArrayList<>();
+			for (MultipartFile image : images) {
+				if (existingTwit.getImages() != null && !existingTwit.getImages().isEmpty()) {
+					for (String oldImage : existingTwit.getImages()) {
+						cloudinaryService.deleteImage(oldImage);
+					}
+				}
+				String imageUrl = cloudinaryService.uploadImage(image);
+				imageUrls.add(imageUrl);
+			}
+			existingTwit.setImages(imageUrls);
+		}
+		
+		// Handle video upload and deletion of old video
+		if (video != null && !video.isEmpty()) {
+			if (existingTwit.getVideo() != null) {
+				cloudinaryService.deleteImage(existingTwit.getVideo());
+			}
+			String videoUrl = cloudinaryService.uploadImage(video);
+			existingTwit.setVideo(videoUrl);
+		}
 		
 		Twit updatedTwit = twitService.updateTwit(existingTwit);
 		TwitDto twitDto = TwitDtoMapper.toTwitDto(updatedTwit, user);

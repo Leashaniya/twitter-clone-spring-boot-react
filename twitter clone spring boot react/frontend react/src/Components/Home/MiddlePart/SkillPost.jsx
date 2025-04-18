@@ -52,9 +52,17 @@ const SkillPost = ({ post }) => {
         dispatch(likePost(post.id));
     };
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
         if (window.confirm('Are you sure you want to delete this skill post?')) {
-            dispatch(deletePost(post.id));
+            try {
+                const response = await dispatch(deletePost(post.id));
+                if (!response.success) {
+                    alert(response.error || 'Failed to delete post. Please try again.');
+                }
+            } catch (error) {
+                console.error("Error deleting post:", error);
+                alert('An error occurred while deleting the post. Please try again.');
+            }
         }
     };
 
@@ -126,25 +134,37 @@ const SkillPost = ({ post }) => {
                         {post.content}
                     </Typography>
 
-                    {/* Display images in a grid */}
+                    {/* Display images in a responsive grid */}
                     {post.images && post.images.length > 0 && (
-                        <ImageList 
-                            cols={post.images.length > 1 ? 2 : 1} 
-                            gap={8}
-                            className="mt-4"
-                        >
-                            {post.images.map((image, index) => (
-                                <ImageListItem key={index}>
-                                    <img
-                                        src={image}
-                                        alt={`Skill content ${index + 1}`}
-                                        loading="lazy"
-                                        className="rounded-lg object-cover w-full"
-                                        style={{ aspectRatio: '16/9' }}
-                                    />
-                                </ImageListItem>
-                            ))}
-                        </ImageList>
+                        <div className="mt-4">
+                            <div className={`grid gap-2 ${
+                                post.images.length === 1 ? 'grid-cols-1' :
+                                post.images.length === 2 ? 'grid-cols-2' :
+                                post.images.length === 3 ? 'grid-cols-2' :
+                                'grid-cols-2'
+                            }`}>
+                                {post.images.map((image, index) => (
+                                    <div 
+                                        key={index}
+                                        className={`relative ${
+                                            post.images.length === 3 && index === 0 ? 'col-span-2' : ''
+                                        }`}
+                                    >
+                                        <img
+                                            src={image}
+                                            alt={`Skill content ${index + 1}`}
+                                            loading="lazy"
+                                            className="rounded-lg w-full h-full object-cover"
+                                            style={{
+                                                aspectRatio: post.images.length === 1 ? '16/9' :
+                                                            post.images.length === 2 ? '1/1' :
+                                                            post.images.length === 3 && index === 0 ? '16/9' : '1/1'
+                                            }}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     )}
 
                     {/* Display video */}

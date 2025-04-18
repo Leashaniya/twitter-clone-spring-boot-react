@@ -149,10 +149,19 @@ export const unlikePost = (postId) => async (dispatch) => {
 
 export const deletePost = (postId) => async (dispatch) => {
     try {
+        console.log("Deleting post with ID:", postId);
         await api.delete(`/api/twits/${postId}`);
         dispatch({ type: DELETE_POST, payload: postId });
+        
+        // Refresh the posts list after successful deletion
+        dispatch(getAllPosts());
+        return { success: true };
     } catch (error) {
         console.error("Error deleting post:", error.response?.data || error.message);
+        return { 
+            success: false, 
+            error: error.response?.data?.message || error.message || "Failed to delete post" 
+        };
     }
 };
 

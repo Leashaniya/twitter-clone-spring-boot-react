@@ -1,6 +1,7 @@
 package com.zosh.dto;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import lombok.AllArgsConstructor;
@@ -18,7 +19,7 @@ public class TwitDto {
 
 	private String content;
 	
-	private String image;
+	private List<String> images = new ArrayList<>();
 	
 	private String video;
 	

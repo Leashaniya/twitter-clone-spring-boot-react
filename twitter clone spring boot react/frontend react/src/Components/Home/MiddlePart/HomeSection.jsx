@@ -15,10 +15,11 @@ import SkillPost from './SkillPost';
 
 const MAX_IMAGES = 3;
 const MAX_VIDEO_DURATION = 30; // in seconds
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
 
 const validationSchema = Yup.object().shape({
   content: Yup.string()
-    .required("Skill description is required")
+    .required("Description is required")
     .min(10, "Description must be at least 10 characters")
     .max(500, "Description cannot exceed 500 characters"),
 });
@@ -57,29 +58,22 @@ const HomeSection = () => {
   const handleSubmit = async (values, actions) => {
     try {
       if (!values.content.trim()) {
-        alert("Please enter a skill description");
+        alert("Please enter a description");
         return;
       }
 
       setUploadingMedia(true);
-      const formData = new FormData();
       
-      // Add content
-      formData.append("content", values.content.trim());
-
-      // Handle images
+      // Handle multiple image uploads
+      let imageUrls = [];
       if (selectedImages.length > 0) {
         try {
-          const imagePromises = selectedImages.map(image => uploadToCloudinary(image, "image"));
-          const imageUrls = await Promise.all(imagePromises);
-          
-          // Add images as a JSON string array
-          formData.append('images', JSON.stringify(imageUrls));
-          
-          // Also add individual image URLs
-          imageUrls.forEach((url, index) => {
-            formData.append(`image${index}`, url);
-          });
+          // Upload all images in parallel
+          const uploadPromises = selectedImages.map(image => 
+            uploadToCloudinary(image, "image")
+          );
+          imageUrls = await Promise.all(uploadPromises);
+          console.log("Uploaded image URLs:", imageUrls);
         } catch (error) {
           console.error("Error uploading images:", error);
           throw new Error("Failed to upload images. Please try again.");
@@ -87,67 +81,139 @@ const HomeSection = () => {
       }
 
       // Handle video
+      let videoUrl = null;
       if (selectedVideo) {
         try {
-          const videoUrl = await uploadToCloudinary(selectedVideo, "video");
-          formData.append("video", videoUrl);
-          formData.append("videoDuration", videoDuration.toString());
+          videoUrl = await uploadToCloudinary(selectedVideo, "video");
+          console.log("Uploaded video URL:", videoUrl);
         } catch (error) {
           console.error("Error uploading video:", error);
           throw new Error("Failed to upload video. Please try again.");
         }
       }
 
-      const result = await dispatch(createPost(formData));
+      // Get the JWT token with Bearer prefix
+      const token = localStorage.getItem("jwt");
+      if (!token) {
+        throw new Error("You must be logged in to create a post");
+      }
+
+      // Create FormData object for multipart/form-data
+      const formData = new FormData();
+      formData.append("content", values.content.trim());
       
-      if (result.success) {
-        console.log("Skill post created successfully:", result.data);
+      // Handle multiple image uploads
+      if (imageUrls.length > 0) {
+        imageUrls.forEach(url => formData.append("images", url));
+      }
+      
+      if (videoUrl) {
+        formData.append("video", videoUrl);
+      }
+
+      // Make the API call to create the post
+      const response = await fetch("http://localhost:5454/api/twits/create", {
+        method: "POST",
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("Server response:", errorData);
+        throw new Error('Failed to create post: ' + errorData);
+      }
+
+      const result = await response.json();
+      
+      if (result) {
+        console.log("Post created successfully:", result);
         actions.resetForm();
         setSelectedImages([]);
         setSelectedVideo(null);
         setVideoDuration(0);
+        // Refresh posts
+        dispatch(getAllPosts());
       } else {
-        throw new Error(result.error || "Failed to create skill post. Please try again.");
+        throw new Error("Failed to create post. Please try again.");
       }
     } catch (error) {
       console.error("Error in handleSubmit:", error);
-      alert(error.message || "An error occurred while sharing your skill. Please try again.");
+      alert(error.message || "An error occurred while sharing your post. Please try again.");
     } finally {
       setUploadingMedia(false);
     }
   };
 
-  const handleVideoSelect = async (event) => {
-    if (event.target.files?.[0]) {
-      if (selectedImages.length > 0) {
-        alert("You cannot upload both images and video in the same post");
-        event.target.value = null;
-        return;
-      }
-
-      const file = event.target.files[0];
-      try {
-        await checkVideoDuration(file);
-        setSelectedVideo(file);
-      } catch (error) {
-        alert(error.message);
-        event.target.value = null;
-      }
-    }
-    event.target.value = null;
-  };
-
   const handleImageSelect = (event) => {
     const files = Array.from(event.target.files);
-    if (selectedImages.length + files.length > MAX_IMAGES) {
-      alert(`You can only upload up to ${MAX_IMAGES} images per skill post`);
-      return;
-    }
+    
     if (selectedVideo) {
       alert("You cannot upload both images and video in the same post");
       return;
     }
-    setSelectedImages(prev => [...prev, ...files]);
+
+    // Check total number of images
+    if (selectedImages.length + files.length > MAX_IMAGES) {
+      alert(`You can only upload up to ${MAX_IMAGES} images per post`);
+      return;
+    }
+
+    // Validate each file
+    const validFiles = files.filter(file => {
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        alert(`${file.name} is not an image file`);
+        return false;
+      }
+
+      // Check file size
+      if (file.size > MAX_FILE_SIZE) {
+        alert(`${file.name} is too large. Maximum file size is 10MB`);
+        return false;
+      }
+
+      return true;
+    });
+
+    if (validFiles.length > 0) {
+      setSelectedImages(prev => [...prev, ...validFiles]);
+    }
+    event.target.value = null;
+  };
+
+  const handleVideoSelect = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (selectedImages.length > 0) {
+      alert("You cannot upload both images and video in the same post");
+      event.target.value = null;
+      return;
+    }
+
+    // Check file type
+    if (!file.type.startsWith('video/')) {
+      alert("Please select a video file");
+      event.target.value = null;
+      return;
+    }
+
+    // Check file size
+    if (file.size > MAX_FILE_SIZE) {
+      alert("Video size should be less than 10MB");
+      event.target.value = null;
+      return;
+    }
+
+    try {
+      await checkVideoDuration(file);
+      setSelectedVideo(file);
+    } catch (error) {
+      alert(error.message);
+    }
     event.target.value = null;
   };
 

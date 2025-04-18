@@ -27,7 +27,7 @@ public class TwitDtoMapper {
 		twitDto.setId(twit.getId());
 		twitDto.setContent(twit.getContent());
 		twitDto.setCreatedAt(twit.getCreatedAt());
-		twitDto.setImage(twit.getImage());
+		twitDto.setImages(twit.getImages());
 		twitDto.setTotalLikes(twit.getLikes().size());
 		twitDto.setTotalReplies(twit.getReplyTwits().size());
 		twitDto.setTotalRetweets(twit.getRetwitUser().size());
@@ -38,21 +38,16 @@ public class TwitDtoMapper {
 		twitDto.setReplyTwits(toTwitDtos(twit.getReplyTwits(), reqUser));
 		twitDto.setVideo(twit.getVideo());
 		
-		
 		return twitDto;
 	}
 	
 	public static List<TwitDto> toTwitDtos(List<Twit> twits, User reqUser) {
-		
 		List<TwitDto> twitDtos=new ArrayList<>();
 		
 		for(Twit twit : twits) {
-		
 			TwitDto twitDto=toReplyTwitDto(twit, reqUser);
-		
 			twitDtos.add(twitDto);
 		}
-		
 		
 		return twitDtos;
 	}
@@ -73,7 +68,7 @@ public class TwitDtoMapper {
 		twitDto.setId(twit.getId());
 		twitDto.setContent(twit.getContent());
 		twitDto.setCreatedAt(twit.getCreatedAt());
-		twitDto.setImage(twit.getImage());
+		twitDto.setImages(twit.getImages());
 		twitDto.setTotalLikes(twit.getLikes().size());
 		twitDto.setTotalReplies(twit.getReplyTwits().size());
 		twitDto.setTotalRetweets(twit.getRetwitUser().size());
