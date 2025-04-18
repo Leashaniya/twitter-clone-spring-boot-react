@@ -266,13 +266,13 @@ const HomeSection = () => {
                           alt={`Selected ${index + 1}`}
                           className="w-full h-32 object-cover rounded-lg"
                         />
-                        <IconButton
-                          size="small"
-                          className="absolute top-1 right-1 bg-black bg-opacity-50 hover:bg-opacity-70"
+                        <button
                           onClick={() => removeImage(index)}
+                          className="absolute top-1 right-1 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full p-1 transition-all"
+                          title="Remove image"
                         >
-                          <CloseIcon className="text-white" fontSize="small" />
-                        </IconButton>
+                          <CloseIcon className="text-white" style={{ fontSize: '18px' }} />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -286,17 +286,17 @@ const HomeSection = () => {
                       className="w-full max-h-96 rounded-lg"
                       controls
                     />
-                    <div className="absolute top-1 right-1 flex items-center space-x-2">
+                    <div className="absolute top-2 right-2 flex items-center space-x-2">
                       <span className="bg-black bg-opacity-50 text-white px-2 py-1 rounded">
                         {videoDuration.toFixed(1)}s
                       </span>
-                      <IconButton
-                        size="small"
-                        className="bg-black bg-opacity-50 hover:bg-opacity-70"
+                      <button
                         onClick={removeVideo}
+                        className="bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full p-1 transition-all"
+                        title="Remove video"
                       >
-                        <CloseIcon className="text-white" fontSize="small" />
-                      </IconButton>
+                        <CloseIcon className="text-white" style={{ fontSize: '18px' }} />
+                      </button>
                     </div>
                   </div>
                 )}
