@@ -14,13 +14,16 @@ import {
     DialogContent,
     DialogActions,
     ImageList,
-    ImageListItem
+    ImageListItem,
+    Modal,
+    Box
 } from '@mui/material'
 import FavoriteIcon from '@mui/icons-material/Favorite'
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder'
 import CommentIcon from '@mui/icons-material/Comment'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import CloseIcon from '@mui/icons-material/Close'
 import { useDispatch, useSelector } from 'react-redux'
 import { likePost, deletePost, updatePost } from '../../../Store/Post/Action'
 
@@ -43,6 +46,7 @@ const SkillPost = ({ post }) => {
     const [editContent, setEditContent] = useState(post.content);
     const [showComments, setShowComments] = useState(false);
     const [comment, setComment] = useState('');
+    const [selectedImage, setSelectedImage] = useState(null);
     
     const isOwner = post.user?.id === auth.user?.id;
     const formattedDate = new Date(post.created_at).toLocaleString();
@@ -88,6 +92,14 @@ const SkillPost = ({ post }) => {
 
         dispatch(updatePost(post.id, formData));
         setEditOpen(false);
+    };
+
+    const handleImageClick = (image) => {
+        setSelectedImage(image);
+    };
+
+    const handleCloseImagePreview = () => {
+        setSelectedImage(null);
     };
 
     return (
@@ -154,12 +166,13 @@ const SkillPost = ({ post }) => {
                                             src={image}
                                             alt={`Skill content ${index + 1}`}
                                             loading="lazy"
-                                            className="rounded-lg w-full h-full object-cover"
+                                            className="rounded-lg w-full h-full object-cover cursor-pointer transition-transform hover:opacity-90"
                                             style={{
                                                 aspectRatio: post.images.length === 1 ? '16/9' :
                                                             post.images.length === 2 ? '1/1' :
                                                             post.images.length === 3 && index === 0 ? '16/9' : '1/1'
                                             }}
+                                            onClick={() => handleImageClick(image)}
                                         />
                                     </div>
                                 ))}
@@ -241,6 +254,29 @@ const SkillPost = ({ post }) => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Image Preview Modal */}
+            <Modal
+                open={!!selectedImage}
+                onClose={handleCloseImagePreview}
+                aria-labelledby="image-preview-modal"
+                className="flex items-center justify-center"
+            >
+                <Box className="relative max-w-[90vw] max-h-[90vh] outline-none">
+                    <IconButton
+                        onClick={handleCloseImagePreview}
+                        className="absolute top-2 right-2 bg-black bg-opacity-50 hover:bg-opacity-75 z-10"
+                        size="small"
+                    >
+                        <CloseIcon className="text-white" />
+                    </IconButton>
+                    <img
+                        src={selectedImage}
+                        alt="Preview"
+                        className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                    />
+                </Box>
+            </Modal>
         </>
     );
 };
